@@ -1,0 +1,71 @@
+# Extract YAML frontmatter fields from a markdown file
+# Usage: extract_meta <file> [field]
+# If no field specified, outputs: title=... date=... preview=...
+extract_meta() {
+  local file="$1" field="$2"
+  local in_meta=0 line
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^---$ ]]; then
+      (( in_meta )) || { in_meta=1; continue; }
+      break  # end of frontmatter
+    fi
+    (( in_meta )) || continue
+    if [[ -z "$field" ]]; then
+      printf '%s=%s\n' "${line%%:*}" "${line#*: }"
+    elif [[ "${line%%:*}" == "$field" ]]; then
+      printf '%s\n' "${line#*: }"
+    fi
+  done < "$file"
+}
+
+# Render markdown body to HTML via cmark-gfm
+# Skips YAML frontmatter (--- ... ---)
+# Usage: render <file>
+render() {
+  local file="$1"
+  sed '1,/^---$/d' "$file" | cmark-gfm
+}
+
+# Assemble a page: inject title into header, stitch header + body + footer
+# Usage: assemble <title> <header_tmpl> <body_html> <footer_tmpl>
+assemble() {
+  local title="$1" header="$2" body="$3" footer="$4"
+  sed "s|{{title}}|${title}|g" "$header"
+  cat "$body"
+  cat "$footer"
+}
+
+# Generate docs/index.html from all article metadata
+# Usage: gen_index <srcdir> <header_tmpl> <footer_tmpl>
+gen_index() {
+  local srcdir="$1" header="$2" footer="$3"
+  local -a entries=()
+  local file title date preview slug
+
+  for file in "$srcdir"/[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]-*.md; do
+    [[ -f "$file" ]] || continue
+    title=$(extract_meta "$file" title)
+    date=$(extract_meta "$file" date)
+    preview=$(extract_meta "$file" preview)
+    slug=$(basename "$file" .md)
+    entries+=("${date}|${title}|${preview}|${slug}")
+  done
+
+  local sorted
+  sorted=$(printf '%s\n' "${entries[@]}" | sort -r -t'|' -k1)
+
+  {
+    sed "s|{{title}}|Blog|g" "$header"
+    echo '<div class="posts">'
+    while IFS='|' read -r date title preview slug; do
+      [[ -z "$date" ]] && continue
+      echo "  <a href=\"${slug}/\" class=\"post-link\">"
+      echo "    <div class=\"post-title\">${title}</div>"
+      echo "    <div class=\"post-meta\">${date}</div>"
+      echo "    <div class=\"post-preview\">${preview}</div>"
+      echo "  </a>"
+    done <<< "$sorted"
+    echo '</div>'
+    cat "$footer"
+  }
+}
