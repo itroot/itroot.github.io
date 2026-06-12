@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Git hook: append Assisted-By trailer for pi-made commits
+# Installed via: make install-git-hooks
+
+[[ "${PI_CODING_AGENT:-}" == "true" ]] || exit 0
+
+msgfile="$1"
+
+# Skip if already has trailer
+grep -q '^Assisted-By:' "$msgfile" && exit 0
+
+pi_ver=$(pi --version 2>/dev/null || echo "unknown")
+url=$(jq -r '
+  .providers | to_entries[]
+  | select(.key | contains("llamacpp"))
+  | .value.baseUrl | sub("/v1$"; "")
+' "$HOME/.pi/agent/models.json" 2>/dev/null | head -1)
+
+model="?" build="?"
+if [[ -n "$url" ]]; then
+  props=$(curl -sf --max-time 2 "$url/props" 2>/dev/null)
+  model=$(echo "$props" | jq -r '.model_alias // "?"' 2>/dev/null)
+  build=$(echo "$props" | jq -r '.build_info // "?"' 2>/dev/null)
+fi
+
+echo >> "$msgfile"
+echo "Assisted-By: π ${pi_ver} · ${model} @ llama.cpp ${build}" >> "$msgfile"
+exit 0

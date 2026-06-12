@@ -1,7 +1,7 @@
 SHELL := bash
 export BASH_ENV := $(CURDIR)/.makerc
 .SUFFIXES:
-.PHONY: all build clean serve help
+.PHONY: all build clean serve help assist
 .DEFAULT_GOAL := all
 
 # Verify dependencies
@@ -42,6 +42,12 @@ serve: # Preview locally
 
 clean: # Remove build output
 	rm -rf $(OUT_DIR)
+
+install-git-hooks: # Install git hooks (symlink from scripts/)
+	@mkdir -p .git/hooks
+	@chmod +x scripts/prepare-commit-msg
+	@ln -sf $(CURDIR)/scripts/prepare-commit-msg .git/hooks/prepare-commit-msg
+	@echo "Installed .git/hooks/prepare-commit-msg → scripts/"
 
 help: # Show available targets
 	@awk -F':+ |#' '/^[a-zA-Z._%-]+:.+#.+$$/ { printf "\033[1;32m%-20s\033[0m %s\n", $$1, $$3 }' $(MAKEFILE_LIST)
