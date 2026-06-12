@@ -25,7 +25,7 @@ all: build
 build: $(OUT_FILES) $(OUT_DIR)/index.html # Compile all articles and index
 
 # Compile a single article: src/YYYY-MM-DD-slug.md → docs/YYYY-MM-DD-slug/index.html
-$(OUT_DIR)/%/index.html: $(SRC_DIR)/%.md
+$(OUT_DIR)/%/index.html: $(SRC_DIR)/%.md $(TPL_DIR)/header.html $(TPL_DIR)/footer.html
 	@mkdir -p $(@D)
 	TITLE=$$(extract_meta $< title) && \
 	render $< > $(@D)/.body.html && \
